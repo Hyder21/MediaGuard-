@@ -10,20 +10,44 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
-      - name: Setup Project
+
+      - name: Create project files
         run: |
-          echo "plugins { id 'com.android.application' version '8.2.0' apply false }" > build.gradle
-          echo "include ':app'" > settings.gradle
-          echo "org.gradle.jvmargs=-Xmx2g" > gradle.properties
-          mkdir -p app/src/main/java/com/mediaguard
-          echo "plugins { id 'com.android.application' } android { namespace 'com.mediaguard'; compileSdk 34; defaultConfig { applicationId 'com.mediaguard'; minSdk 24; targetSdk 34; versionCode 1; versionName '1.0' } } dependencies { implementation 'androidx.appcompat:appcompat:1.6.1' }" > app/build.gradle
-          echo "<manifest xmlns:android='http://schemas.android.com/apk/res/android'><application android:label='MediaGuard'><activity android:name='.MainActivity' android:exported='true'><intent-filter><action android:name='android.intent.action.MAIN'/><category android:name='android.intent.category.LAUNCHER'/></intent-filter></activity></application></manifest>" > app/src/main/AndroidManifest.xml
-          echo "package com.mediaguard; import android.os.Bundle; import androidx.appcompat.app.AppCompatActivity; import android.widget.TextView; public class MainActivity extends AppCompatActivity { protected void onCreate(Bundle b){ super.onCreate(b); TextView tv=new TextView(this); tv.setText(\"MediaGuard Active\"); setContentView(tv);} }" > app/src/main/java/com/mediaguard/MainActivity.java
-      - name: Build
+          python3 << 'PY'
+          import pathlib
+          pathlib.Path("app/src/main/java/com/mediaguard").mkdir(parents=True, exist_ok=True)
+          open("build.gradle","w").write("plugins { id 'com.android.application' version '8.2.0' apply false }\n")
+          open("settings.gradle","w").write('include ":app"\n')
+          open("gradle.properties","w").write("org.gradle.jvmargs=-Xmx2g\n")
+          open("app/build.gradle","w").write("""
+          plugins { id 'com.android.application' }
+          android {
+              namespace 'com.mediaguard'
+              compileSdk 34
+              defaultConfig {
+                  applicationId 'com.mediaguard'
+                  minSdk 24
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+          }
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+          }
+          """)
+          open("app/src/main/AndroidManifest.xml","w").write('<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:label="MediaGuard"><activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity></application></manifest>')
+          open("app/src/main/java/com/mediaguard/MainActivity.java","w").write('package com.mediaguard; import android.os.Bundle; import androidx.appcompat.app.AppCompatActivity; import android.widget.TextView; public class MainActivity extends AppCompatActivity { protected void onCreate(Bundle b){ super.onCreate(b); TextView tv=new TextView(this); tv.setText("MediaGuard Active"); setContentView(tv);} }')
+          PY
+
+      - name: Build APK
         run: |
           gradle wrapper --gradle-version 8.2
-          ./gradlew assembleDebug
-      - uses: actions/upload-artifact@v4
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: MediaGuard-APK
           path: app/build/outputs/apk/debug/app-debug.apk
