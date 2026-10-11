@@ -10,59 +10,20 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
-      - uses: gradle/gradle-build-action@v2
-        with:
-          gradle-version: 8.2
-      - name: Create MediaGuard project
+      - name: Setup Project
         run: |
           mkdir -p app/src/main/java/com/tijara/mediaguard
-          cat > app/build.gradle << 'EOF'
-          plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
-          android {
-            namespace 'com.tijara.mediaguard'
-            compileSdk 34
-            defaultConfig {
-              applicationId "com.tijara.mediaguard"
-              minSdk 24
-              targetSdk 34
-              versionCode 1
-              versionName "1.0"
-            }
-          }
-          dependencies { implementation 'androidx.appcompat:appcompat:1.6.1' }
-          EOF
-          echo "plugins { id 'com.android.application' version '8.2.0' apply false; id 'org.jetbrains.kotlin.android' version '1.9.10' apply false }" > build.gradle
-          echo "include ':app'" > settings.gradle
-          echo "org.gradle.jvmargs=-Xmx2g" > gradle.properties
-          cat > app/src/main/AndroidManifest.xml << 'EOF'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <application android:label="MediaGuard" android:theme="@android:style/Theme.Black.NoTitleBar">
-              <activity android:name=".MainActivity" android:exported="true">
-                <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
-              </activity>
-            </application>
-          </manifest>
-          EOF
-          cat > app/src/main/java/com/tijara/mediaguard/MainActivity.kt << 'EOF'
-          package com.tijara.mediaguard
-          import android.os.Bundle
-          import androidx.appcompat.app.AppCompatActivity
-          import android.widget.TextView
-          class MainActivity : AppCompatActivity() {
-            override fun onCreate(b: Bundle?) {
-              super.onCreate(b)
-              val tv = TextView(this)
-              tv.text = "MediaGuard Active"
-              tv.textSize = 24f
-              tv.setPadding(60,300,60,60)
-              setContentView(tv)
-            }
-          }
-          EOF
-      - name: Build APK
-        run: gradle assembleDebug
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+          echo 'plugins { id "com.android.application" version "8.2.0" apply false; id "org.jetbrains.kotlin.android" version "1.9.10" apply false }' > build.gradle
+          echo 'include ":app"' > settings.gradle
+          echo 'org.gradle.jvmargs=-Xmx2g' > gradle.properties
+          echo 'plugins { id "com.android.application"; id "org.jetbrains.kotlin.android" } android { namespace "com.tijara.mediaguard"; compileSdk 34; defaultConfig { applicationId "com.tijara.mediaguard"; minSdk 24; targetSdk 34; versionCode 1; versionName "1.0" } } dependencies { implementation "androidx.appcompat:appcompat:1.6.1" }' > app/build.gradle
+          echo '<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:label="MediaGuard"><activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity></application></manifest>' > app/src/main/AndroidManifest.xml
+          echo 'package com.tijara.mediaguard; import android.os.Bundle; import androidx.appcompat.app.AppCompatActivity; import android.widget.TextView; class MainActivity: AppCompatActivity() { override fun onCreate(b: Bundle?) { super.onCreate(b); val tv=TextView(this); tv.text="MediaGuard Active"; setContentView(tv) } }' > app/src/main/java/com/tijara/mediaguard/MainActivity.kt
+      - name: Build
+        run: |
+          gradle wrapper --gradle-version 8.2
+          ./gradlew assembleDebug --stacktrace
+      - uses: actions/upload-artifact@v4
         with:
           name: MediaGuard-APK
-          path: app/build/outputs/apk/debug/*.apk
+          path: app/build/outputs/apk/debug/app-debug.apk
