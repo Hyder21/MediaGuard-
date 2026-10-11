@@ -12,17 +12,17 @@ jobs:
       - uses: android-actions/setup-android@v3
       - name: Setup Project
         run: |
-          mkdir -p app/src/main/java/com/tijara/mediaguard
-          echo 'plugins { id "com.android.application" version "8.2.0" apply false; id "org.jetbrains.kotlin.android" version "1.9.10" apply false }' > build.gradle
-          echo 'include ":app"' > settings.gradle
-          echo 'org.gradle.jvmargs=-Xmx2g' > gradle.properties
-          echo 'plugins { id "com.android.application"; id "org.jetbrains.kotlin.android" } android { namespace "com.tijara.mediaguard"; compileSdk 34; defaultConfig { applicationId "com.tijara.mediaguard"; minSdk 24; targetSdk 34; versionCode 1; versionName "1.0" } } dependencies { implementation "androidx.appcompat:appcompat:1.6.1" }' > app/build.gradle
-          echo '<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:label="MediaGuard"><activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity></application></manifest>' > app/src/main/AndroidManifest.xml
-          echo 'package com.tijara.mediaguard; import android.os.Bundle; import androidx.appcompat.app.AppCompatActivity; import android.widget.TextView; class MainActivity: AppCompatActivity() { override fun onCreate(b: Bundle?) { super.onCreate(b); val tv=TextView(this); tv.text="MediaGuard Active"; setContentView(tv) } }' > app/src/main/java/com/tijara/mediaguard/MainActivity.kt
+          echo "plugins { id 'com.android.application' version '8.2.0' apply false }" > build.gradle
+          echo "include ':app'" > settings.gradle
+          echo "org.gradle.jvmargs=-Xmx2g" > gradle.properties
+          mkdir -p app/src/main/java/com/mediaguard
+          echo "plugins { id 'com.android.application' } android { namespace 'com.mediaguard'; compileSdk 34; defaultConfig { applicationId 'com.mediaguard'; minSdk 24; targetSdk 34; versionCode 1; versionName '1.0' } } dependencies { implementation 'androidx.appcompat:appcompat:1.6.1' }" > app/build.gradle
+          echo "<manifest xmlns:android='http://schemas.android.com/apk/res/android'><application android:label='MediaGuard'><activity android:name='.MainActivity' android:exported='true'><intent-filter><action android:name='android.intent.action.MAIN'/><category android:name='android.intent.category.LAUNCHER'/></intent-filter></activity></application></manifest>" > app/src/main/AndroidManifest.xml
+          echo "package com.mediaguard; import android.os.Bundle; import androidx.appcompat.app.AppCompatActivity; import android.widget.TextView; public class MainActivity extends AppCompatActivity { protected void onCreate(Bundle b){ super.onCreate(b); TextView tv=new TextView(this); tv.setText(\"MediaGuard Active\"); setContentView(tv);} }" > app/src/main/java/com/mediaguard/MainActivity.java
       - name: Build
         run: |
           gradle wrapper --gradle-version 8.2
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: MediaGuard-APK
