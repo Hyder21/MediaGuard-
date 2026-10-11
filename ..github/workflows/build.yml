@@ -1,9 +1,5 @@
 name: Build Android APK
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
-
+on: [push, workflow_dispatch]
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,22 +13,38 @@ jobs:
       - uses: gradle/gradle-build-action@v2
         with:
           gradle-version: 8.2
-      - name: Create Android project files
+      - name: Create MediaGuard project
         run: |
-          mkdir -p app/src/main/java/com/tijara/mediafirewall
-          cat > app/build.gradle << 'GRADLE'
+          mkdir -p app/src/main/java/com/tijara/mediaguard
+          cat > app/build.gradle << 'EOF'
           plugins { id 'com.android.application'; id 'org.jetbrains.kotlin.android' }
-          android { namespace 'com.tijara.mediafirewall'; compileSdk 34; defaultConfig { applicationId "com.tijara.mediafirewall"; minSdk 24; targetSdk 34; versionCode 1; versionName "1.0" } }
+          android {
+            namespace 'com.tijara.mediaguard'
+            compileSdk 34
+            defaultConfig {
+              applicationId "com.tijara.mediaguard"
+              minSdk 24
+              targetSdk 34
+              versionCode 1
+              versionName "1.0"
+            }
+          }
           dependencies { implementation 'androidx.appcompat:appcompat:1.6.1' }
-          GRADLE
+          EOF
           echo "plugins { id 'com.android.application' version '8.2.0' apply false; id 'org.jetbrains.kotlin.android' version '1.9.10' apply false }" > build.gradle
           echo "include ':app'" > settings.gradle
           echo "org.gradle.jvmargs=-Xmx2g" > gradle.properties
-          cat > app/src/main/AndroidManifest.xml << 'MANIFEST'
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:label="MediaFirewall" android:theme="@android:style/Theme.Black.NoTitleBar"><activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity></application></manifest>
-          MANIFEST
-          cat > app/src/main/java/com/tijara/mediafirewall/MainActivity.kt << 'KOTLIN'
-          package com.tijara.mediafirewall
+          cat > app/src/main/AndroidManifest.xml << 'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <application android:label="MediaGuard" android:theme="@android:style/Theme.Black.NoTitleBar">
+              <activity android:name=".MainActivity" android:exported="true">
+                <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+              </activity>
+            </application>
+          </manifest>
+          EOF
+          cat > app/src/main/java/com/tijara/mediaguard/MainActivity.kt << 'EOF'
+          package com.tijara.mediaguard
           import android.os.Bundle
           import androidx.appcompat.app.AppCompatActivity
           import android.widget.TextView
@@ -40,17 +52,17 @@ jobs:
             override fun onCreate(b: Bundle?) {
               super.onCreate(b)
               val tv = TextView(this)
-              tv.text = "Media Firewall Active"
+              tv.text = "MediaGuard Active"
               tv.textSize = 24f
               tv.setPadding(60,300,60,60)
               setContentView(tv)
             }
           }
-          KOTLIN
-      - name: Build Debug APK
+          EOF
+      - name: Build APK
         run: gradle assembleDebug
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MediaFirewall-APK
+          name: MediaGuard-APK
           path: app/build/outputs/apk/debug/*.apk
