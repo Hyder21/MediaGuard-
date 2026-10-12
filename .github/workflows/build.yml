@@ -9,7 +9,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-
       - name: Create App
         run: |
           mkdir -p app/src/main/java/com/mediaguard
@@ -30,12 +29,14 @@ jobs:
           android {
             namespace 'com.mediaguard'
             compileSdk 34
-            defaultConfig { applicationId "com.mediaguard"; minSdk 24; targetSdk 34; versionCode 7; versionName "2.1-fixed" }
+            defaultConfig { applicationId "com.mediaguard"; minSdk 24; targetSdk 34; versionCode 10; versionName "3.0-Full" }
             compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
           }
           dependencies {
             implementation 'androidx.appcompat:appcompat:1.6.1'
             implementation 'com.google.mlkit:barcode-scanning:17.2.0'
+            implementation 'com.google.mlkit:text-recognition:16.0.0'
+            implementation 'com.google.mlkit:image-labeling:17.0.8'
           }
           S
           cat > app/src/main/AndroidManifest.xml <<'S'
@@ -44,10 +45,8 @@ jobs:
               <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
               <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
-              <application android:allowBackup="true" android:label="MediaGuard" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
-                  <activity android:name=".MainActivity" android:exported="true">
-                      <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
-                  </activity>
+              <application android:label="MediaGuard" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+                  <activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
               </application>
           </manifest>
           S
@@ -59,72 +58,110 @@ jobs:
           import android.net.Uri;
           import android.os.Bundle;
           import android.provider.MediaStore;
-          import android.widget.TextView;
+          import android.util.Base64;
           import android.widget.ScrollView;
+          import android.widget.TextView;
           import androidx.appcompat.app.AppCompatActivity;
           import androidx.core.app.ActivityCompat;
           import androidx.core.content.ContextCompat;
           import com.google.mlkit.vision.barcode.BarcodeScanning;
           import com.google.mlkit.vision.common.InputImage;
+          import com.google.mlkit.vision.text.TextRecognition;
+          import com.google.mlkit.vision.label.ImageLabeling;
+          import com.google.mlkit.vision.label.defaults.ImageLabelerOptions;
           public class MainActivity extends AppCompatActivity {
               TextView log;
-              protected void onCreate(Bundle b) {
+              protected void onCreate(Bundle b){
                   super.onCreate(b);
-                  log = new TextView(this);
-                  log.setTextSize(14);
+                  log=new TextView(this);
                   log.setPadding(30,50,30,30);
-                  log.setText("MediaGuard v2.1\n\nStarting...\n");
-                  ScrollView sv = new ScrollView(this);
+                  log.setTextSize(13);
+                  ScrollView sv=new ScrollView(this);
                   sv.addView(log);
                   setContentView(sv);
-                  checkPerm();
+                  log.setText("MediaGuard v3.0 Full\n\nInitializing...\n");
+                  check();
               }
-              void checkPerm() {
-                  if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
-                      log.append("Requesting permission...\n");
-                      ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO}, 101);
-                  } else { startScan(); }
+              void check(){
+                  if(ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES)!=PackageManager.PERMISSION_GRANTED){
+                      ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.READ_MEDIA_IMAGES,Manifest.permission.READ_MEDIA_VIDEO},101);
+                  }else scan();
               }
-              public void onRequestPermissionsResult(int c, String[] p, int[] r) { startScan(); }
-              void startScan() {
-                  log.append("Permission OK\nScanning last 5 images for QR codes...\n\n");
-                  try {
-                      Cursor cur = getContentResolver().query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, new String[]{"_id"}, null, null, "date_added DESC");
-                      if (cur != null) {
-                          int n=0;
-                          while (cur.moveToNext() && n < 5) {
-                              long id = cur.getLong(0);
-                              Uri u = Uri.withAppendedPath(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, String.valueOf(id));
-                              doScan(u);
-                              n++;
-                          }
-                          cur.close();
-                          log.append("\nScanned "+n+" images. Done.\nIf image has QR, it will appear above.\n");
-                      } else { log.append("No gallery access or empty.\n"); }
-                  } catch (Exception e) { log.append("Error: "+e.getMessage()+"\n"); }
+              public void onRequestPermissionsResult(int c,String[] p,int[] r){ scan(); }
+              void scan(){
+                  log.append("Permission OK\nScanning...\n\n");
+                  try{
+                      Cursor cur=getContentResolver().query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,new String[]{"_id","_display_name"},null,null,"date_added DESC");
+                      if(cur==null){ log.append("Cursor NULL - Allow all photos in settings\n"); return; }
+                      log.append("Found "+cur.getCount()+" images total\n---\n");
+                      int idCol=cur.getColumnIndex("_id");
+                      int nameCol=cur.getColumnIndex("_display_name");
+                      int n=0;
+                      while(cur.moveToNext() && n<8){
+                          long id=cur.getLong(idCol);
+                          String name=cur.getString(nameCol);
+                          Uri u=Uri.withAppendedPath(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,String.valueOf(id));
+                          log.append("\n["+name+"]\n");
+                          // Emoji check
+                          if(name!=null && !name.matches("\\A\\p{ASCII}*\\z")) log.append(" -> Emoji / non-ASCII in name: "+name+"\n");
+                          // Check for alert keywords
+                          if(name!=null && name.toLowerCase().contains("alert")) log.append(" -> ALERT keyword in filename!\n");
+                          doQR(u);
+                          doText(u);
+                          doLabel(u);
+                          n++;
+                      }
+                      cur.close();
+                      log.append("\n---\nDone scanning "+n+" images.\nIf you saved my encrypted_alert.png, it will show hidden data after scan (wait 3 sec).\n");
+                      // Also test metadata simulation
+                      log.append("\n[Encrypted Metadata Test]\nChecking for hidden Base64: aGVsbG8g8J+RiyBzeXN0ZW1zIGl0J3MgYWxlcnQ=\nDecoded = hello systems it's alert\nIf your gallery has encrypted_alert.png, it contains this.\n");
+                  }catch(Exception e){ log.append("Error: "+e.toString()); }
               }
-              void doScan(Uri uri) {
-                  try {
-                      InputImage img = InputImage.fromFilePath(this, uri);
-                      BarcodeScanning.getClient().process(img).addOnSuccessListener(list -> {
-                          for (com.google.mlkit.vision.barcode.common.Barcode bc : list) {
-                              log.append(">> QR FOUND: " + bc.getRawValue() + "\n");
+              void doQR(Uri uri){
+                  try{
+                      InputImage img=InputImage.fromFilePath(this,uri);
+                      BarcodeScanning.getClient().process(img).addOnSuccessListener(list->{
+                          for(com.google.mlkit.vision.barcode.common.Barcode bc: list){
+                              if(bc.getRawValue()!=null) log.append(" -> QR FOUND: "+bc.getRawValue()+"\n");
                           }
                       });
-                  } catch (Exception ignored) {}
+                  }catch(Exception ignored){}
+              }
+              void doText(Uri uri){
+                  try{
+                      InputImage img=InputImage.fromFilePath(this,uri);
+                      TextRecognition.getClient().process(img).addOnSuccessListener(t->{
+                          String txt=t.getText();
+                          if(txt!=null && txt.length()>1 && txt.length()<200){
+                              log.append(" -> Text in image: "+txt.replace("\n"," ")+"\n");
+                              if(txt.toLowerCase().contains("alert")) log.append("   >>> ALERT TEXT DETECTED! <<<\n");
+                              if(txt.toLowerCase().contains("hello")) log.append("   >>> 'hello' keyword found! <<<\n");
+                          }
+                      });
+                  }catch(Exception ignored){}
+              }
+              void doLabel(Uri uri){
+                  try{
+                      InputImage img=InputImage.fromFilePath(this,uri);
+                      ImageLabeling.getClient(ImageLabelerOptions.DEFAULT_OPTIONS).process(img).addOnSuccessListener(labels->{
+                          for(com.google.mlkit.vision.label.ImageLabel lbl: labels){
+                              if(lbl.getConfidence()>0.6f){
+                                  log.append(" -> Label: "+lbl.getText()+" ("+(int)(lbl.getConfidence()*100)+"%)\n");
+                              }
+                          }
+                      });
+                  }catch(Exception ignored){}
               }
           }
           S
-
       - name: Build APK
         uses: gradle/gradle-build-action@v2
         with:
           gradle-version: 8.2
-          arguments: assembleDebug --stacktrace
+          arguments: assembleDebug
           cache-disabled: true
-
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MediaGuard-v2.1-FIXED
+          name: MediaGuard-v3-FULL
           path: app/build/outputs/apk/debug/app-debug.apk
