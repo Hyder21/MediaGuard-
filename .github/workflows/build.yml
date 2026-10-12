@@ -1,15 +1,28 @@
-name: Build Android APK
+name: Build Android APK - DEBUG MAIN
 on: [push, workflow_dispatch]
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
+      - name: DEBUG - Show what files exist in main
+        run: |
+          echo "=== CURRENT FILES IN MAIN ==="
+          pwd
+          ls -la
+          echo "=== .github/workflows/ ==="
+          ls -la .github/workflows/ || echo "no workflows folder"
+          echo "=== Content of build.yml (first 50 lines) ==="
+          cat .github/workflows/build.yml | head -n 50
+          echo "=== END DEBUG ==="
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - name: Build APK ALL LIBS
+
+      - name: Create App - FULL STACK ALL LIBS
         run: |
           mkdir -p app/src/main/java/com/mediaguard app/src/main/res/values app/src/main/res/drawable
           cat > settings.gradle <<'EOF'
@@ -23,55 +36,76 @@ jobs:
           cat > gradle.properties <<'EOF'
           org.gradle.jvmargs=-Xmx4g
           android.useAndroidX=true
-          android.enableJetifier=true
           EOF
           cat > app/build.gradle <<'EOF'
           plugins { id 'com.android.application' }
           android {
             namespace 'com.mediaguard'
             compileSdk 34
-            defaultConfig { applicationId "com.mediaguard"; minSdk 24; targetSdk 34; versionCode 60; versionName "9.0-ALL-LIBS" }
+            defaultConfig { applicationId "com.mediaguard"; minSdk 26; targetSdk 34; versionCode 70; versionName "9.1-DEBUG-MAIN" }
             compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
           }
           dependencies {
             implementation 'androidx.appcompat:appcompat:1.6.1'
             implementation 'com.google.android.material:material:1.11.0'
-            implementation 'androidx.work:work-runtime:2.9.0'
-            implementation 'androidx.security:security-crypto:1.1.0-alpha06'
             implementation 'com.google.mlkit:barcode-scanning:17.2.0'
             implementation 'com.google.mlkit:text-recognition:16.0.0'
-            implementation 'com.google.android.gms:play-services-location:21.2.0'
           }
           EOF
           cat > app/src/main/res/values/themes.xml <<'EOF'
           <resources><style name="Theme.MediaGuard" parent="Theme.Material3.DayNight"><item name="colorPrimary">#1976D2</item></style></resources>
           EOF
           cat > app/src/main/res/drawable/shield.xml <<'EOF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108"><path android:fillColor="#1976D2" android:pathData="M54,10 L20,26 L20,60 C20,80 35,95 54,100 C73,95 88,80 88,60 L88,26 Z"/><path android:fillColor="#FFFFFF" android:pathData="M38,54 L50,66 L72,42" android:strokeColor="#FFFFFF" android:strokeWidth="6" android:strokeLineCap="round"/></vector>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108"><path android:fillColor="#1976D2" android:pathData="M54,10 L20,26 L20,60 C20,80 35,95 54,100 C73,95 88,80 88,60 L88,26 Z"/></vector>
           EOF
           cat > app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/><uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/><uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/><uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/><uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/><uses-permission android:name="android.permission.INTERNET"/><uses-permission android:name="android.permission.FOREGROUND_SERVICE"/><uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
-            <application android:label="MediaGuard" android:theme="@style/Theme.MediaGuard" android:icon="@drawable/shield">
+            <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/><uses-permission android:name="android.permission.INTERNET"/><uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+            <application android:label="MediaGuard DEBUG MAIN" android:theme="@style/Theme.MediaGuard" android:icon="@drawable/shield">
               <activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
-              <service android:name=".GuardService" android:foregroundServiceType="dataSync|location"/>
-              <service android:name=".FirewallVpnService" android:permission="android.permission.BIND_VPN_SERVICE" android:exported="false"><intent-filter><action android:name="android.net.VpnService"/></intent-filter></service>
+              <service android:name=".GuardService"/><service android:name=".FirewallVpnService" android:permission="android.permission.BIND_VPN_SERVICE"><intent-filter><action android:name="android.net.VpnService"/></intent-filter></service>
             </application>
           </manifest>
           EOF
           cat > app/src/main/java/com/mediaguard/GuardService.java <<'EOF'
           package com.mediaguard; import android.app.*; import android.content.Intent; import android.os.IBinder; import androidx.core.app.NotificationCompat;
-          public class GuardService extends Service { public IBinder onBind(Intent i){return null;} public int onStartCommand(Intent intent,int f,int s){ NotificationChannel ch=new NotificationChannel("guard","MediaGuard",NotificationManager.IMPORTANCE_LOW); ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(ch); Notification n=new NotificationCompat.Builder(this,"guard").setSmallIcon(R.drawable.shield).setContentTitle("MediaGuard Firewall").setContentText("VPN | Location | nmap Block ACTIVE").setOngoing(true).build(); startForeground(1,n); return START_STICKY; } }
+          public class GuardService extends Service { public IBinder onBind(Intent i){return null;} public int onStartCommand(Intent intent,int f,int s){ NotificationChannel ch=new NotificationChannel("g","g",NotificationManager.IMPORTANCE_LOW); ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(ch); Notification n=new NotificationCompat.Builder(this,"g").setSmallIcon(R.drawable.shield).setContentTitle("MediaGuard DEBUG").build(); startForeground(1,n); return START_STICKY; } }
           EOF
           cat > app/src/main/java/com/mediaguard/FirewallVpnService.java <<'EOF'
           package com.mediaguard; import android.content.Intent; import android.net.VpnService; import android.os.ParcelFileDescriptor;
-          public class FirewallVpnService extends VpnService { ParcelFileDescriptor vpn=null; public int onStartCommand(Intent i,int f,int s){ try{ vpn=new Builder().addAddress("10.0.0.2",32).addRoute("0.0.0.0",0).setSession("MediaGuard").establish(); }catch(Exception e){} return START_STICKY; } public void onDestroy(){ try{if(vpn!=null) vpn.close();}catch(Exception e){} super.onDestroy(); } }
+          public class FirewallVpnService extends VpnService { ParcelFileDescriptor p; public int onStartCommand(Intent i,int f,int s){ try{p=new Builder().addAddress("10.0.0.2",32).addRoute("0.0.0.0",0).establish();}catch(Exception e){} return START_STICKY; } }
           EOF
           cat > app/src/main/java/com/mediaguard/MainActivity.java <<'EOF'
           package com.mediaguard;
-          import android.Manifest; import android.content.Intent; import android.database.Cursor; import android.graphics.Color; import android.location.*; import android.net.Uri; import android.net.VpnService; import android.os.Bundle; import android.os.Handler; import android.provider.MediaStore; import android.widget.*; import androidx.appcompat.app.AppCompatActivity; import androidx.core.app.ActivityCompat; import com.google.mlkit.vision.barcode.BarcodeScanning; import com.google.mlkit.vision.common.InputImage; import com.google.mlkit.vision.text.TextRecognition; import com.google.mlkit.vision.text.latin.TextRecognizerOptions; import java.text.SimpleDateFormat; import java.util.*;
+          import android.os.Bundle; import android.widget.*; import android.graphics.Color; import java.text.SimpleDateFormat; import java.util.*; import android.os.Handler;
           public class MainActivity extends AppCompatActivity {
-            TextView log,date,city,fire,speed; Switch swVPN,swLoc,swSpeed,swAlert,swNmap,swQR,swText; int blocked=0; Handler h=new Handler();
             protected void onCreate(Bundle b){ super.onCreate(b);
-              try{
+              LinearLayout root=new LinearLayout(this); root.setOrientation(1); root.setBackgroundColor(Color.parseColor("#121212")); root.setPadding(20,100,20,20);
+              TextView t=new TextView(this); t.setText("MediaGuard MAIN DEBUG v9.1\n\nIf you see this, MAIN is FIXED\n\n- All libraries: appcompat, material, barcode 17.2.0, text 16.0.0\n- Build time should be 90s+ not 5s\n- Date: "+new SimpleDateFormat("HH:mm:ss").format(new Date())); t.setTextColor(Color.WHITE); t.setTextSize(16); root.addView(t);
+              setContentView(root);
+            }
+          }
+          EOF
+          echo "=== FILES CREATED ==="
+          ls -la app/src/main/java/com/mediaguard/
+          cat app/build.gradle
+
+      - name: Build with Gradle - DEBUG LOGS
+        uses: gradle/gradle-build-action@v2
+        with:
+          gradle-version: 8.2
+          arguments: assembleDebug --stacktrace --info
+
+      - name: DEBUG - Check APK exists
+        run: |
+          echo "=== LOOKING FOR APK ==="
+          find . -name "*.apk" -type f || echo "NO APK FOUND - BUILD FAILED"
+          ls -lh app/build/outputs/apk/debug/ || echo "no debug folder"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MediaGuard-MAIN-DEBUG-v9.1
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
