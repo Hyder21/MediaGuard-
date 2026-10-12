@@ -10,10 +10,11 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
-      - uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.2'
-
+      - name: Install Gradle manually
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.2-bin.zip
+          unzip -q gradle-8.2-bin.zip
+          echo "$PWD/gradle-8.2/bin" >> $GITHUB_PATH
       - name: Create project files
         run: |
           python3 << 'PY'
@@ -42,13 +43,11 @@ jobs:
           open("app/src/main/AndroidManifest.xml","w").write('<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:label="MediaGuard"><activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity></application></manifest>')
           open("app/src/main/java/com/mediaguard/MainActivity.java","w").write('package com.mediaguard; import android.os.Bundle; import androidx.appcompat.app.AppCompatActivity; import android.widget.TextView; public class MainActivity extends AppCompatActivity { protected void onCreate(Bundle b){ super.onCreate(b); TextView tv=new TextView(this); tv.setText("MediaGuard Active"); setContentView(tv);} }')
           PY
-
       - name: Build APK
         run: |
           gradle wrapper --gradle-version 8.2
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
-
+          ./gradlew assembleDebug
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
