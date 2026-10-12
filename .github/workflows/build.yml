@@ -30,7 +30,7 @@ jobs:
           android {
             namespace 'com.mediaguard'
             compileSdk 34
-            defaultConfig { applicationId "com.mediaguard"; minSdk 24; targetSdk 34; versionCode 6; versionName "2.0" }
+            defaultConfig { applicationId "com.mediaguard"; minSdk 24; targetSdk 34; versionCode 7; versionName "2.1-fixed" }
             compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
           }
           dependencies {
@@ -44,7 +44,7 @@ jobs:
               <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
               <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
               <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
-              <application android:label="MediaGuard">
+              <application android:allowBackup="true" android:label="MediaGuard" android:theme="@style/Theme.AppCompat.Light.NoActionBar">
                   <activity android:name=".MainActivity" android:exported="true">
                       <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
                   </activity>
@@ -60,6 +60,7 @@ jobs:
           import android.os.Bundle;
           import android.provider.MediaStore;
           import android.widget.TextView;
+          import android.widget.ScrollView;
           import androidx.appcompat.app.AppCompatActivity;
           import androidx.core.app.ActivityCompat;
           import androidx.core.content.ContextCompat;
@@ -67,23 +68,26 @@ jobs:
           import com.google.mlkit.vision.common.InputImage;
           public class MainActivity extends AppCompatActivity {
               TextView log;
-              @Override
               protected void onCreate(Bundle b) {
                   super.onCreate(b);
                   log = new TextView(this);
-                  log.setPadding(30,30,30,30);
-                  setContentView(log);
+                  log.setTextSize(14);
+                  log.setPadding(30,50,30,30);
+                  log.setText("MediaGuard v2.1\n\nStarting...\n");
+                  ScrollView sv = new ScrollView(this);
+                  sv.addView(log);
+                  setContentView(sv);
                   checkPerm();
               }
               void checkPerm() {
                   if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
+                      log.append("Requesting permission...\n");
                       ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO}, 101);
                   } else { startScan(); }
               }
-              @Override
               public void onRequestPermissionsResult(int c, String[] p, int[] r) { startScan(); }
               void startScan() {
-                  log.setText("MediaGuard Active\nScanning incoming media for QR...\n\n");
+                  log.append("Permission OK\nScanning last 5 images for QR codes...\n\n");
                   try {
                       Cursor cur = getContentResolver().query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, new String[]{"_id"}, null, null, "date_added DESC");
                       if (cur != null) {
@@ -95,23 +99,22 @@ jobs:
                               n++;
                           }
                           cur.close();
-                          log.append("Scanned "+n+" recent images\n");
-                      }
-                  } catch (Exception e) { log.append("Error: "+e.getMessage()); }
+                          log.append("\nScanned "+n+" images. Done.\nIf image has QR, it will appear above.\n");
+                      } else { log.append("No gallery access or empty.\n"); }
+                  } catch (Exception e) { log.append("Error: "+e.getMessage()+"\n"); }
               }
               void doScan(Uri uri) {
                   try {
                       InputImage img = InputImage.fromFilePath(this, uri);
                       BarcodeScanning.getClient().process(img).addOnSuccessListener(list -> {
                           for (com.google.mlkit.vision.barcode.common.Barcode bc : list) {
-                              log.append("QR FOUND: " + bc.getRawValue() + "\n");
+                              log.append(">> QR FOUND: " + bc.getRawValue() + "\n");
                           }
                       });
                   } catch (Exception ignored) {}
               }
           }
           S
-          echo "CREATED OK"; ls -lh app/src/main/java/com/mediaguard/
 
       - name: Build APK
         uses: gradle/gradle-build-action@v2
@@ -123,5 +126,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MediaGuard-v2-QR
+          name: MediaGuard-v2.1-FIXED
           path: app/build/outputs/apk/debug/app-debug.apk
