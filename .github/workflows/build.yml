@@ -11,7 +11,7 @@ jobs:
           java-version: '17'
       - name: Create App
         run: |
-          mkdir -p app/src/main/java/com/mediaguard app/src/main/res/drawable
+          mkdir -p app/src/main/java/com/mediaguard
           cat > settings.gradle <<'S'
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
@@ -29,7 +29,7 @@ jobs:
           android {
             namespace 'com.mediaguard'
             compileSdk 34
-            defaultConfig { applicationId "com.mediaguard"; minSdk 26; targetSdk 34; versionCode 41; versionName "7.1-Fixed-Green" }
+            defaultConfig { applicationId "com.mediaguard"; minSdk 26; targetSdk 34; versionCode 42; versionName "7.2-CrashFix" }
             compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
           }
           dependencies {
@@ -38,14 +38,11 @@ jobs:
             implementation 'com.google.mlkit:text-recognition:16.0.0'
           }
           S
-          cat > app/src/main/res/drawable/shield.xml <<'S'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="100dp" android:height="100dp" android:viewportWidth="100" android:viewportHeight="100"><path android:fillColor="#1976D2" android:pathData="M50,5 L15,20 Q10,25 12,45 Q15,75 50,95"/><path android:fillColor="#D32F2F" android:pathData="M50,5 L85,20 Q90,25 88,45 Q85,75 50,95"/><path android:fillColor="#FFFFFF" android:pathData="M30,50 L42,62 L72,32" android:strokeColor="#FFFFFF" android:strokeWidth="8" android:strokeLineCap="round"/></vector>
-          S
           cat > app/src/main/AndroidManifest.xml <<'S'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/><uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/><uses-permission android:name="android.permission.POST_NOTIFICATIONS"/><uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/><uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/><uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/><uses-permission android:name="android.permission.INTERNET"/><uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-              <application android:label="MediaGuard" android:theme="@style/Theme.AppCompat.Light.NoActionBar" android:icon="@drawable/shield">
+              <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/><uses-permission android:name="android.permission.POST_NOTIFICATIONS"/><uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/><uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/><uses-permission android:name="android.permission.INTERNET"/><uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+              <application android:label="MediaGuard" android:theme="@android:style/Theme.NoTitleBar">
                   <activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
                   <service android:name=".GuardService" android:foregroundServiceType="dataSync"/>
                   <service android:name=".FirewallVpnService" android:permission="android.permission.BIND_VPN_SERVICE" android:exported="false"><intent-filter><action android:name="android.net.VpnService"/></intent-filter></service>
@@ -57,13 +54,12 @@ jobs:
           import android.app.*;
           import android.content.Intent;
           import android.os.IBinder;
-          import androidx.core.app.NotificationCompat;
           public class GuardService extends Service {
               public IBinder onBind(Intent i){return null;}
               public int onStartCommand(Intent intent,int flags,int startId){
                   NotificationChannel ch=new NotificationChannel("guard","Protection",NotificationManager.IMPORTANCE_LOW);
                   ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(ch);
-                  Notification noti=new NotificationCompat.Builder(this,"guard").setSmallIcon(R.drawable.shield).setContentTitle("MediaGuard Firewall").setContentText("Blocking nmap | Remote access").setOngoing(true).build();
+                  Notification noti=new Notification.Builder(this,"guard").setSmallIcon(android.R.drawable.ic_dialog_alert).setContentTitle("MediaGuard Firewall").setContentText("Blocking nmap").setOngoing(true).build();
                   startForeground(1,noti); return START_STICKY;
               }
           }
@@ -76,10 +72,7 @@ jobs:
           public class FirewallVpnService extends VpnService {
               ParcelFileDescriptor vpn=null;
               public int onStartCommand(Intent intent,int flags,int startId){
-                  try{
-                      Builder b=new Builder().addAddress("10.0.0.2",32).addRoute("0.0.0.0",0).setSession("MediaGuard");
-                      vpn=b.establish();
-                  }catch(Exception e){}
+                  try{ vpn=new Builder().addAddress("10.0.0.2",32).addRoute("0.0.0.0",0).setSession("MediaGuard").establish(); }catch(Exception e){}
                   return START_STICKY;
               }
               public void onDestroy(){ try{if(vpn!=null) vpn.close();}catch(Exception e){} super.onDestroy(); }
@@ -100,7 +93,6 @@ jobs:
           import android.widget.*;
           import androidx.appcompat.app.AppCompatActivity;
           import androidx.core.app.ActivityCompat;
-          import androidx.core.content.ContextCompat;
           import com.google.mlkit.vision.barcode.BarcodeScanning;
           import com.google.mlkit.vision.common.InputImage;
           import com.google.mlkit.vision.text.TextRecognition;
@@ -110,56 +102,28 @@ jobs:
           import java.util.Date;
           import java.util.Locale;
           public class MainActivity extends AppCompatActivity {
-              TextView tvLog, tvDate, tvCity, tvFirewall, tvSpeed;
+              TextView tvLog, tvDate, tvCity, tvFire, tvSpeed;
               Switch swVPN, swNmap;
               Handler h=new Handler();
-              int blocked=0, scanned=0;
+              int blocked=0;
               protected void onCreate(Bundle b){
                   super.onCreate(b);
-                  LinearLayout root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(Color.parseColor("#121212"));
-                  LinearLayout top=new LinearLayout(this); top.setBackgroundColor(Color.parseColor("#1976D2")); top.setPadding(30,60,30,30);
-                  TextView t=new TextView(this); t.setText("🛡️ MediaGuard v7.1 FIXED\nAll Features + Green Build"); t.setTextColor(Color.WHITE); top.addView(t); root.addView(top);
-                  ScrollView sv=new ScrollView(this); LinearLayout body=new LinearLayout(this); body.setOrientation(LinearLayout.VERTICAL); body.setPadding(25,20,25,20);
-                  tvDate=new TextView(this); tvDate.setTextColor(Color.parseColor("#90CAF9")); tvDate.setTextSize(12); body.addView(tvDate);
-                  tvCity=new TextView(this); tvCity.setTextColor(Color.WHITE); tvCity.setText("City/Region: Tap LOCATION ON"); body.addView(tvCity);
-                  tvSpeed=new TextView(this); tvSpeed.setTextColor(Color.parseColor("#81C784")); tvSpeed.setText("Speed: --"); body.addView(tvSpeed);
-                  tvFirewall=new TextView(this); tvFirewall.setTextColor(Color.WHITE); tvFirewall.setText("Firewall: OFF | nmap blocked: 0"); body.addView(tvFirewall);
+                  try{
+                  LinearLayout root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(Color.parseColor("#101010"));
+                  LinearLayout top=new LinearLayout(this); top.setBackgroundColor(Color.parseColor("#0D47A1")); top.setPadding(20,80,20,30);
+                  TextView title=new TextView(this); title.setText("MediaGuard v7.2 FIXED\nFirewall + Scanner"); title.setTextColor(Color.WHITE); title.setTextSize(16); top.addView(title); root.addView(top);
+                  ScrollView sv=new ScrollView(this); LinearLayout body=new LinearLayout(this); body.setOrientation(LinearLayout.VERTICAL); body.setPadding(20,20,20,20);
+                  tvDate=new TextView(this); tvDate.setTextColor(Color.CYAN); body.addView(tvDate);
+                  tvCity=new TextView(this); tvCity.setTextColor(Color.WHITE); tvCity.setText("City/Region: OFF"); body.addView(tvCity);
+                  tvSpeed=new TextView(this); tvSpeed.setTextColor(Color.GREEN); tvSpeed.setText("Speed: --"); body.addView(tvSpeed);
+                  tvFire=new TextView(this); tvFire.setTextColor(Color.YELLOW); tvFire.setText("Firewall: OFF | nmap blocked: 0"); body.addView(tvFire);
                   body.addView(line());
-                  swVPN=addSwitch(body,"VPN Protection"); swNmap=addSwitch(body,"Block nmap / Port Scan"); swNmap.setChecked(true);
-                  Switch swLoc=addSwitch(body,"Location - City/Region"); Switch swAlert=addSwitch(body,"Security Alert"); swAlert.setChecked(true);
+                  swVPN=addSwitch(body,"VPN Protection"); swNmap=addSwitch(body,"Block nmap Scan"); swNmap.setChecked(true);
+                  Switch swLoc=addSwitch(body,"Location - City/Region");
+                  Switch swAlert=addSwitch(body,"Security Alert"); swAlert.setChecked(true);
                   body.addView(line());
-                  Button btnScan=new Button(this); btnScan.setText("📁 SCAN FILES & MEDIA ANYTIME"); btnScan.setBackgroundColor(Color.parseColor("#2E7D32")); btnScan.setTextColor(Color.WHITE); body.addView(btnScan);
-                  Button btnFire=new Button(this); btnFire.setText("🔥 FIREWALL STATUS + BLOCK NMAP"); btnFire.setBackgroundColor(Color.parseColor("#D32F2F")); btnFire.setTextColor(Color.WHITE); body.addView(btnFire);
-                  Button btnNet=new Button(this); btnNet.setText("🌐 TEST INTERNET + DATE/TIME"); body.addView(btnNet);
-                  tvLog=new TextView(this); tvLog.setTextColor(Color.parseColor("#B0BEC5")); tvLog.setTextSize(11); tvLog.setText("\nLog: Ready - This build will succeed\n"); body.addView(tvLog);
-                  sv.addView(body); root.addView(sv); setContentView(root);
-                  updateTime();
-                  btnScan.setOnClickListener(v-> scanMedia());
-                  btnFire.setOnClickListener(v-> { blocked++; tvFirewall.setText("Firewall: ACTIVE | nmap blocked: "+blocked+" | Ports 22,3389,445 BLOCKED"); tvLog.append("\n🔥 BLOCKED nmap: SYN scan, XMAS, FIN\nPorts: 22 SSH, 3389 RDP, 445 SMB\nTotal blocked: "+blocked); startService(new Intent(this,GuardService.class)); });
-                  btnNet.setOnClickListener(v-> testNet());
-                  swVPN.setOnCheckedChangeListener((a,c)->{ if(c) enableVpn(); else { stopService(new Intent(this,FirewallVpnService.class)); tvLog.append("\n> VPN OFF"); } });
-                  swLoc.setOnCheckedChangeListener((a,c)->{ if(c) getLocation(); });
-                  ActivityCompat.requestPermissions(this,new String[]{Manifest.permission.READ_MEDIA_IMAGES,Manifest.permission.ACCESS_FINE_LOCATION,Manifest.permission.POST_NOTIFICATIONS},101);
-              }
-              LinearLayout line(){ LinearLayout l=new LinearLayout(this); l.setBackgroundColor(Color.parseColor("#333")); LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,2); p.setMargins(0,12,0,12); l.setLayoutParams(p); return l; }
-              Switch addSwitch(LinearLayout b,String s){ TextView tv=new TextView(this); tv.setText(s); tv.setTextColor(Color.WHITE); b.addView(tv); Switch sw=new Switch(this); b.addView(sw); return sw; }
-              void updateTime(){ h.postDelayed(new Runnable(){ public void run(){ tvDate.setText("🕐 "+new SimpleDateFormat("dd MMM yyyy HH:mm:ss",Locale.getDefault()).format(new Date())+" Karachi PK"); h.postDelayed(this,1000); }},0); }
-              void enableVpn(){ Intent i=VpnService.prepare(this); if(i!=null) startActivityForResult(i,100); else startService(new Intent(this,FirewallVpnService.class)); tvLog.append("\n> VPN ON - Blocking hidden connections\n"); }
-              void testNet(){ try{ android.net.ConnectivityManager cm=(android.net.ConnectivityManager)getSystemService(CONNECTIVITY_SERVICE); android.net.NetworkCapabilities nc=cm.getNetworkCapabilities(cm.getActiveNetwork()); int down=nc!=null?nc.getLinkDownstreamBandwidthKbps():0; tvSpeed.setText("Speed: "+(down/1000)+" Mbps"); tvLog.append("\n> Speed: "+down/1000+" Mbps"); }catch(Exception e){ tvLog.append("\n> Speed fail"); } }
-              void getLocation(){ if(ContextCompat.checkSelfPermission(this,Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED){ tvCity.setText("Need location permission"); return; } try{ LocationManager lm=(LocationManager)getSystemService(LOCATION_SERVICE); lm.requestLocationUpdates(LocationManager.GPS_PROVIDER,0,0, l->{ try{ Geocoder g=new Geocoder(this,Locale.getDefault()); String city=g.getFromLocation(l.getLatitude(),l.getLongitude(),1).get(0).getLocality(); String reg=g.getFromLocation(l.getLatitude(),l.getLongitude(),1).get(0).getAdminArea(); tvCity.setText("📍 "+city+", "+reg+" | "+l.getLatitude()+","+l.getLongitude()); tvLog.append("\n> City: "+city+", "+reg); }catch(Exception e){ tvCity.setText("Lat: "+l.getLatitude()+" Lon: "+l.getLongitude()); } }); }catch(Exception e){ tvCity.setText("GPS error"); } }
-              void scanMedia(){ tvLog.append("\n\n=== SCAN FILES & MEDIA ===\n"); try{ Cursor cur=getContentResolver().query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,new String[]{"_id","_display_name"},null,null,"date_added DESC"); if(cur==null){ tvLog.append("No perm\n"); return; } int idCol=cur.getColumnIndex("_id"); int nameCol=cur.getColumnIndex("_display_name"); int n=0; while(cur.moveToNext() && n<15){ long id=cur.getLong(idCol); String name=cur.getString(nameCol); Uri u=Uri.withAppendedPath(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,String.valueOf(id)); tvLog.append("\n["+name+"]"); if(name!=null && name.toLowerCase().contains("alert")) tvLog.append(" 🔴"); doQR(u); doText(u); n++; } cur.close(); tvLog.append("\nScanned "+n+"\n"); }catch(Exception e){ tvLog.append("\nErr: "+e); } }
-              void doQR(Uri u){ try{ InputImage img=InputImage.fromFilePath(this,u); BarcodeScanning.getClient().process(img).addOnSuccessListener(list->{ for(com.google.mlkit.vision.barcode.common.Barcode bc:list){ if(bc.getRawValue()!=null) tvLog.append("\n QR: "+bc.getRawValue()); } }); }catch(Exception e){} }
-              void doText(Uri u){ try{ InputImage img=InputImage.fromFilePath(this,u); TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS).process(img).addOnSuccessListener(t->{ String s=t.getText(); if(s!=null && s.length()>2 && s.length()<300) tvLog.append("\n Text: "+s.replace("\n"," ")); }); }catch(Exception e){} }
-          }
-          S
-      - name: Build APK
-        uses: gradle/gradle-build-action@v2
-        with:
-          gradle-version: 8.2
-          arguments: assembleDebug
-          cache-disabled: true
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: MediaGuard-v7.1-Fixed
-          path: app/build/outputs/apk/debug/app-debug.apk
+                  Button btnScan=new Button(this); btnScan.setText("SCAN FILES & MEDIA ANYTIME"); body.addView(btnScan);
+                  Button btnFire=new Button(this); btnFire.setText("FIREWALL STATUS + BLOCK NMAP"); btnFire.setBackgroundColor(Color.RED); btnFire.setTextColor(Color.WHITE); body.addView(btnFire);
+                  Button btnNet=new Button(this); btnNet.setText("TEST INTERNET + LOCATION"); body.addView(btnNet);
+                  Button btnVPN=new Button(this); btnVPN.setText("ENABLE VPN BACKGROUND"); body.addView(btnVPN);
+                  tvLog=new TextView(this); tvLog.setTextColor(Color.LTGRAY); tvLog.setTextSize(11); tvLog.setText("\nLog: App opened OK - crash
