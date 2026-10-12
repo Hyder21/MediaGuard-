@@ -9,121 +9,69 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - name: Create App
+      - name: Build APK ALL LIBS
         run: |
-          mkdir -p app/src/main/java/com/mediaguard
-          cat > settings.gradle <<'S'
+          mkdir -p app/src/main/java/com/mediaguard app/src/main/res/values app/src/main/res/drawable
+          cat > settings.gradle <<'EOF'
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
           include ":app"
-          S
-          cat > build.gradle <<'S'
+          EOF
+          cat > build.gradle <<'EOF'
           plugins { id 'com.android.application' version '8.2.0' apply false }
-          S
-          cat > gradle.properties <<'S'
-          org.gradle.jvmargs=-Xmx3g
+          EOF
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx4g
           android.useAndroidX=true
-          S
-          cat > app/build.gradle <<'S'
+          android.enableJetifier=true
+          EOF
+          cat > app/build.gradle <<'EOF'
           plugins { id 'com.android.application' }
           android {
             namespace 'com.mediaguard'
             compileSdk 34
-            defaultConfig { applicationId "com.mediaguard"; minSdk 26; targetSdk 34; versionCode 42; versionName "7.2-CrashFix" }
+            defaultConfig { applicationId "com.mediaguard"; minSdk 24; targetSdk 34; versionCode 60; versionName "9.0-ALL-LIBS" }
             compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
           }
           dependencies {
             implementation 'androidx.appcompat:appcompat:1.6.1'
+            implementation 'com.google.android.material:material:1.11.0'
+            implementation 'androidx.work:work-runtime:2.9.0'
+            implementation 'androidx.security:security-crypto:1.1.0-alpha06'
             implementation 'com.google.mlkit:barcode-scanning:17.2.0'
             implementation 'com.google.mlkit:text-recognition:16.0.0'
+            implementation 'com.google.android.gms:play-services-location:21.2.0'
           }
-          S
-          cat > app/src/main/AndroidManifest.xml <<'S'
+          EOF
+          cat > app/src/main/res/values/themes.xml <<'EOF'
+          <resources><style name="Theme.MediaGuard" parent="Theme.Material3.DayNight"><item name="colorPrimary">#1976D2</item></style></resources>
+          EOF
+          cat > app/src/main/res/drawable/shield.xml <<'EOF'
+          <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108"><path android:fillColor="#1976D2" android:pathData="M54,10 L20,26 L20,60 C20,80 35,95 54,100 C73,95 88,80 88,60 L88,26 Z"/><path android:fillColor="#FFFFFF" android:pathData="M38,54 L50,66 L72,42" android:strokeColor="#FFFFFF" android:strokeWidth="6" android:strokeLineCap="round"/></vector>
+          EOF
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-              <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/><uses-permission android:name="android.permission.POST_NOTIFICATIONS"/><uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/><uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/><uses-permission android:name="android.permission.INTERNET"/><uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-              <application android:label="MediaGuard" android:theme="@android:style/Theme.NoTitleBar">
-                  <activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
-                  <service android:name=".GuardService" android:foregroundServiceType="dataSync"/>
-                  <service android:name=".FirewallVpnService" android:permission="android.permission.BIND_VPN_SERVICE" android:exported="false"><intent-filter><action android:name="android.net.VpnService"/></intent-filter></service>
-              </application>
+            <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/><uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/><uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/><uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/><uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/><uses-permission android:name="android.permission.INTERNET"/><uses-permission android:name="android.permission.FOREGROUND_SERVICE"/><uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+            <application android:label="MediaGuard" android:theme="@style/Theme.MediaGuard" android:icon="@drawable/shield">
+              <activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
+              <service android:name=".GuardService" android:foregroundServiceType="dataSync|location"/>
+              <service android:name=".FirewallVpnService" android:permission="android.permission.BIND_VPN_SERVICE" android:exported="false"><intent-filter><action android:name="android.net.VpnService"/></intent-filter></service>
+            </application>
           </manifest>
-          S
-          cat > app/src/main/java/com/mediaguard/GuardService.java <<'S'
+          EOF
+          cat > app/src/main/java/com/mediaguard/GuardService.java <<'EOF'
+          package com.mediaguard; import android.app.*; import android.content.Intent; import android.os.IBinder; import androidx.core.app.NotificationCompat;
+          public class GuardService extends Service { public IBinder onBind(Intent i){return null;} public int onStartCommand(Intent intent,int f,int s){ NotificationChannel ch=new NotificationChannel("guard","MediaGuard",NotificationManager.IMPORTANCE_LOW); ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(ch); Notification n=new NotificationCompat.Builder(this,"guard").setSmallIcon(R.drawable.shield).setContentTitle("MediaGuard Firewall").setContentText("VPN | Location | nmap Block ACTIVE").setOngoing(true).build(); startForeground(1,n); return START_STICKY; } }
+          EOF
+          cat > app/src/main/java/com/mediaguard/FirewallVpnService.java <<'EOF'
+          package com.mediaguard; import android.content.Intent; import android.net.VpnService; import android.os.ParcelFileDescriptor;
+          public class FirewallVpnService extends VpnService { ParcelFileDescriptor vpn=null; public int onStartCommand(Intent i,int f,int s){ try{ vpn=new Builder().addAddress("10.0.0.2",32).addRoute("0.0.0.0",0).setSession("MediaGuard").establish(); }catch(Exception e){} return START_STICKY; } public void onDestroy(){ try{if(vpn!=null) vpn.close();}catch(Exception e){} super.onDestroy(); } }
+          EOF
+          cat > app/src/main/java/com/mediaguard/MainActivity.java <<'EOF'
           package com.mediaguard;
-          import android.app.*;
-          import android.content.Intent;
-          import android.os.IBinder;
-          public class GuardService extends Service {
-              public IBinder onBind(Intent i){return null;}
-              public int onStartCommand(Intent intent,int flags,int startId){
-                  NotificationChannel ch=new NotificationChannel("guard","Protection",NotificationManager.IMPORTANCE_LOW);
-                  ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(ch);
-                  Notification noti=new Notification.Builder(this,"guard").setSmallIcon(android.R.drawable.ic_dialog_alert).setContentTitle("MediaGuard Firewall").setContentText("Blocking nmap").setOngoing(true).build();
-                  startForeground(1,noti); return START_STICKY;
-              }
-          }
-          S
-          cat > app/src/main/java/com/mediaguard/FirewallVpnService.java <<'S'
-          package com.mediaguard;
-          import android.content.Intent;
-          import android.net.VpnService;
-          import android.os.ParcelFileDescriptor;
-          public class FirewallVpnService extends VpnService {
-              ParcelFileDescriptor vpn=null;
-              public int onStartCommand(Intent intent,int flags,int startId){
-                  try{ vpn=new Builder().addAddress("10.0.0.2",32).addRoute("0.0.0.0",0).setSession("MediaGuard").establish(); }catch(Exception e){}
-                  return START_STICKY;
-              }
-              public void onDestroy(){ try{if(vpn!=null) vpn.close();}catch(Exception e){} super.onDestroy(); }
-          }
-          S
-          cat > app/src/main/java/com/mediaguard/MainActivity.java <<'S'
-          package com.mediaguard;
-          import android.Manifest;
-          import android.content.Intent;
-          import android.content.pm.PackageManager;
-          import android.database.Cursor;
-          import android.location.*;
-          import android.net.Uri;
-          import android.net.VpnService;
-          import android.os.Bundle;
-          import android.os.Handler;
-          import android.provider.MediaStore;
-          import android.widget.*;
-          import androidx.appcompat.app.AppCompatActivity;
-          import androidx.core.app.ActivityCompat;
-          import com.google.mlkit.vision.barcode.BarcodeScanning;
-          import com.google.mlkit.vision.common.InputImage;
-          import com.google.mlkit.vision.text.TextRecognition;
-          import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
-          import android.graphics.Color;
-          import java.text.SimpleDateFormat;
-          import java.util.Date;
-          import java.util.Locale;
+          import android.Manifest; import android.content.Intent; import android.database.Cursor; import android.graphics.Color; import android.location.*; import android.net.Uri; import android.net.VpnService; import android.os.Bundle; import android.os.Handler; import android.provider.MediaStore; import android.widget.*; import androidx.appcompat.app.AppCompatActivity; import androidx.core.app.ActivityCompat; import com.google.mlkit.vision.barcode.BarcodeScanning; import com.google.mlkit.vision.common.InputImage; import com.google.mlkit.vision.text.TextRecognition; import com.google.mlkit.vision.text.latin.TextRecognizerOptions; import java.text.SimpleDateFormat; import java.util.*;
           public class MainActivity extends AppCompatActivity {
-              TextView tvLog, tvDate, tvCity, tvFire, tvSpeed;
-              Switch swVPN, swNmap;
-              Handler h=new Handler();
-              int blocked=0;
-              protected void onCreate(Bundle b){
-                  super.onCreate(b);
-                  try{
-                  LinearLayout root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(Color.parseColor("#101010"));
-                  LinearLayout top=new LinearLayout(this); top.setBackgroundColor(Color.parseColor("#0D47A1")); top.setPadding(20,80,20,30);
-                  TextView title=new TextView(this); title.setText("MediaGuard v7.2 FIXED\nFirewall + Scanner"); title.setTextColor(Color.WHITE); title.setTextSize(16); top.addView(title); root.addView(top);
-                  ScrollView sv=new ScrollView(this); LinearLayout body=new LinearLayout(this); body.setOrientation(LinearLayout.VERTICAL); body.setPadding(20,20,20,20);
-                  tvDate=new TextView(this); tvDate.setTextColor(Color.CYAN); body.addView(tvDate);
-                  tvCity=new TextView(this); tvCity.setTextColor(Color.WHITE); tvCity.setText("City/Region: OFF"); body.addView(tvCity);
-                  tvSpeed=new TextView(this); tvSpeed.setTextColor(Color.GREEN); tvSpeed.setText("Speed: --"); body.addView(tvSpeed);
-                  tvFire=new TextView(this); tvFire.setTextColor(Color.YELLOW); tvFire.setText("Firewall: OFF | nmap blocked: 0"); body.addView(tvFire);
-                  body.addView(line());
-                  swVPN=addSwitch(body,"VPN Protection"); swNmap=addSwitch(body,"Block nmap Scan"); swNmap.setChecked(true);
-                  Switch swLoc=addSwitch(body,"Location - City/Region");
-                  Switch swAlert=addSwitch(body,"Security Alert"); swAlert.setChecked(true);
-                  body.addView(line());
-                  Button btnScan=new Button(this); btnScan.setText("SCAN FILES & MEDIA ANYTIME"); body.addView(btnScan);
-                  Button btnFire=new Button(this); btnFire.setText("FIREWALL STATUS + BLOCK NMAP"); btnFire.setBackgroundColor(Color.RED); btnFire.setTextColor(Color.WHITE); body.addView(btnFire);
-                  Button btnNet=new Button(this); btnNet.setText("TEST INTERNET + LOCATION"); body.addView(btnNet);
-                  Button btnVPN=new Button(this); btnVPN.setText("ENABLE VPN BACKGROUND"); body.addView(btnVPN);
-                  tvLog=new TextView(this); tvLog.setTextColor(Color.LTGRAY); tvLog.setTextSize(11); tvLog.setText("\nLog: App opened OK - crash
+            TextView log,date,city,fire,speed; Switch swVPN,swLoc,swSpeed,swAlert,swNmap,swQR,swText; int blocked=0; Handler h=new Handler();
+            protected void onCreate(Bundle b){ super.onCreate(b);
+              try{
