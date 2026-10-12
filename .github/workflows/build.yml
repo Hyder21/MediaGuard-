@@ -9,22 +9,119 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+
       - name: Create App
         run: |
           mkdir -p app/src/main/java/com/mediaguard
-          echo "pluginManagement{repositories{google();mavenCentral();gradlePluginPortal()}} dependencyResolutionManagement{repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS);repositories{google();mavenCentral()}} include ':app'" > settings.gradle
-          echo "plugins{id 'com.android.application' version '8.2.0' apply false}" > build.gradle
-          echo "org.gradle.jvmargs=-Xmx3g" > gradle.properties
-          printf "plugins{id 'com.android.application'}\nandroid{namespace 'com.mediaguard';compileSdk 34;defaultConfig{applicationId 'com.mediaguard';minSdk 24;targetSdk 34;versionCode 3;versionName '2.0'}}\ndependencies{implementation 'androidx.appcompat:appcompat:1.6.1';implementation 'com.google.mlkit:barcode-scanning:17.2.0'}\n" > app/build.gradle
-          echo '<?xml version="1.0"?><manifest xmlns:android="http://schemas.android.com/apk/res/android"><uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/><uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/><uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/><application android:label="MediaGuard"><activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity></application></manifest>' > app/src/main/AndroidManifest.xml
-          printf "package com.mediaguard; import android.Manifest; import android.content.pm.PackageManager; import android.database.Cursor; import android.net.Uri; import android.os.Bundle; import android.provider.MediaStore; import android.widget.TextView; import androidx.appcompat.app.AppCompatActivity; import androidx.core.content.ContextCompat; import androidx.core.app.ActivityCompat; import com.google.mlkit.vision.barcode.BarcodeScanning; import com.google.mlkit.vision.common.InputImage; public class MainActivity extends AppCompatActivity{TextView log; protected void onCreate(Bundle b){super.onCreate(b);log=new TextView(this);setContentView(log);check();} void check(){String[] p={Manifest.permission.READ_MEDIA_IMAGES,Manifest.permission.READ_MEDIA_VIDEO}; boolean n=false; for(String s:p) if(ContextCompat.checkSelfPermission(this,s)!=0) n=true; if(n) ActivityCompat.requestPermissions(this,p,101); else scan();} public void onRequestPermissionsResult(int c,String[] p,int[] r){scan();} void scan(){log.setText(\"Scanning incoming media for QR...\\n\"); try{Cursor cur=getContentResolver().query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,new String[]{\"_id\"},null,null,\"date_added DESC LIMIT 5\"); if(cur!=null){while(cur.moveToNext()){Uri u=Uri.withAppendedPath(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,\"\"+cur.getLong(0)); try{InputImage img=InputImage.fromFilePath(this,u); BarcodeScanning.getClient().process(img).addOnSuccessListener(bs->{for(com.google.mlkit.vision.barcode.common.Barcode bc:bs){log.append(\"QR: \"+bc.getRawValue()+\"\\n\");}});}catch(Exception e){}} cur.close();}}catch(Exception e){log.setText(e.toString());}}}" > app/src/main/java/com/mediaguard/MainActivity.java
-      - name: Build
-        uses: gradle/gradle-build-action@v3
+          cat > settings.gradle <<'S'
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
+          include ":app"
+          S
+          cat > build.gradle <<'S'
+          plugins { id 'com.android.application' version '8.2.0' apply false }
+          S
+          cat > gradle.properties <<'S'
+          org.gradle.jvmargs=-Xmx3g
+          android.useAndroidX=true
+          S
+          cat > app/build.gradle <<'S'
+          plugins { id 'com.android.application' }
+          android {
+            namespace 'com.mediaguard'
+            compileSdk 34
+            defaultConfig { applicationId "com.mediaguard"; minSdk 24; targetSdk 34; versionCode 6; versionName "2.0" }
+            compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+          }
+          dependencies {
+            implementation 'androidx.appcompat:appcompat:1.6.1'
+            implementation 'com.google.mlkit:barcode-scanning:17.2.0'
+          }
+          S
+          cat > app/src/main/AndroidManifest.xml <<'S'
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+              <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>
+              <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32"/>
+              <application android:label="MediaGuard">
+                  <activity android:name=".MainActivity" android:exported="true">
+                      <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          S
+          cat > app/src/main/java/com/mediaguard/MainActivity.java <<'S'
+          package com.mediaguard;
+          import android.Manifest;
+          import android.content.pm.PackageManager;
+          import android.database.Cursor;
+          import android.net.Uri;
+          import android.os.Bundle;
+          import android.provider.MediaStore;
+          import android.widget.TextView;
+          import androidx.appcompat.app.AppCompatActivity;
+          import androidx.core.app.ActivityCompat;
+          import androidx.core.content.ContextCompat;
+          import com.google.mlkit.vision.barcode.BarcodeScanning;
+          import com.google.mlkit.vision.common.InputImage;
+          public class MainActivity extends AppCompatActivity {
+              TextView log;
+              @Override
+              protected void onCreate(Bundle b) {
+                  super.onCreate(b);
+                  log = new TextView(this);
+                  log.setPadding(30,30,30,30);
+                  setContentView(log);
+                  checkPerm();
+              }
+              void checkPerm() {
+                  if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
+                      ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO}, 101);
+                  } else { startScan(); }
+              }
+              @Override
+              public void onRequestPermissionsResult(int c, String[] p, int[] r) { startScan(); }
+              void startScan() {
+                  log.setText("MediaGuard Active\nScanning incoming media for QR...\n\n");
+                  try {
+                      Cursor cur = getContentResolver().query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, new String[]{"_id"}, null, null, "date_added DESC");
+                      if (cur != null) {
+                          int n=0;
+                          while (cur.moveToNext() && n < 5) {
+                              long id = cur.getLong(0);
+                              Uri u = Uri.withAppendedPath(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, String.valueOf(id));
+                              doScan(u);
+                              n++;
+                          }
+                          cur.close();
+                          log.append("Scanned "+n+" recent images\n");
+                      }
+                  } catch (Exception e) { log.append("Error: "+e.getMessage()); }
+              }
+              void doScan(Uri uri) {
+                  try {
+                      InputImage img = InputImage.fromFilePath(this, uri);
+                      BarcodeScanning.getClient().process(img).addOnSuccessListener(list -> {
+                          for (com.google.mlkit.vision.barcode.common.Barcode bc : list) {
+                              log.append("QR FOUND: " + bc.getRawValue() + "\n");
+                          }
+                      });
+                  } catch (Exception ignored) {}
+              }
+          }
+          S
+          echo "CREATED OK"; ls -lh app/src/main/java/com/mediaguard/
+
+      - name: Build APK
+        uses: gradle/gradle-build-action@v2
         with:
           gradle-version: 8.2
-          arguments: assembleDebug
-      - name: Upload
+          arguments: assembleDebug --stacktrace
+          cache-disabled: true
+
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MediaGuard-v2
+          name: MediaGuard-v2-QR
           path: app/build/outputs/apk/debug/app-debug.apk
