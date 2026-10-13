@@ -1,4 +1,4 @@
-name: Build MediaGuard Pro v13 FIXED JAVA
+name: Build MediaGuard v15 UPLOAD FIX
 on:
   push:
     branches: [main]
@@ -15,107 +15,27 @@ jobs:
       - uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: 8.7
-
-      - name: Create App - FIXED JAVA
+      - name: Create Project
         run: |
           rm -rf app build.gradle settings.gradle
           mkdir -p app/src/main/java/com/mediaguard app/src/main/res/values app/src/main/res/drawable
-          echo "sdk.dir=$ANDROID_HOME" > local.properties
-          cat > settings.gradle <<'EOFF'
-          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
-          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
-          include ":app"
-          EOFF
-          cat > build.gradle <<'EOFF'
-          plugins { id 'com.android.application' version '8.2.2' apply false }
-          EOFF
-          cat > gradle.properties <<'EOFF'
-          org.gradle.jvmargs=-Xmx4g
-          android.useAndroidX=true
-          EOFF
-          cat > app/build.gradle <<'EOFF'
-          plugins { id 'com.android.application' }
-          android {
-            namespace 'com.mediaguard'
-            compileSdk 34
-            defaultConfig { applicationId "com.mediaguard"; minSdk 26; targetSdk 34; versionCode 13; versionName "13.0-FIXED" }
-            compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
-          }
-          dependencies {
-            implementation 'androidx.appcompat:appcompat:1.6.1'
-            implementation 'com.google.mlkit:barcode-scanning:17.2.0'
-            implementation 'com.google.mlkit:text-recognition:16.0.0'
-          }
-          EOFF
-          cat > app/src/main/res/values/themes.xml <<'EOFF'
-          <resources><style name="Theme.MediaGuard" parent="Theme.AppCompat.Light.DarkActionBar"><item name="colorPrimary">#1976D2</item></style></resources>
-          EOFF
-          cat > app/src/main/res/drawable/shield.xml <<'EOFF'
-          <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108"><path android:fillColor="#1976D2" android:pathData="M54,10 L20,26 L20,60 C20,80 35,95 54,100 C73,95 88,80 88,60 L88,26 Z"/></vector>
-          EOFF
-          cat > app/src/main/AndroidManifest.xml <<'EOFF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <uses-permission android:name="android.permission.CAMERA"/>
-            <uses-permission android:name="android.permission.INTERNET"/>
-            <application android:label="MediaGuard Pro" android:theme="@style/Theme.MediaGuard" android:icon="@drawable/shield">
-              <activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
-            </application>
-          </manifest>
-          EOFF
-          cat > app/src/main/java/com/mediaguard/MainActivity.java <<'EOFF'
-          package com.mediaguard;
-          import android.os.Bundle;
-          import android.widget.LinearLayout;
-          import android.widget.TextView;
-          import android.widget.Button;
-          import android.graphics.Color;
-          import androidx.appcompat.app.AppCompatActivity;
-          import java.text.SimpleDateFormat;
-          import java.util.Date;
-          import java.util.Locale;
-          public class MainActivity extends AppCompatActivity {
-            protected void onCreate(Bundle savedInstanceState) {
-              super.onCreate(savedInstanceState);
-              LinearLayout root = new LinearLayout(this);
-              root.setOrientation(LinearLayout.VERTICAL);
-              root.setBackgroundColor(Color.parseColor("#0A0A0A"));
-              root.setPadding(40,80,40,40);
-              TextView title = new TextView(this);
-              title.setText("MediaGuard Pro v13\nFIXED JAVA");
-              title.setTextColor(Color.WHITE);
-              title.setTextSize(22);
-              root.addView(title);
-              TextView control = new TextView(this);
-              control.setText("CONTROL CENTER\nVPN: OFF\nLocation: OFF\nSpeed: FAST\nAlert: ON\nKarachi, PK\n" + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date()));
-              control.setTextColor(Color.parseColor("#E0E0E0"));
-              control.setTextSize(15);
-              control.setBackgroundColor(Color.parseColor("#1E1E1E"));
-              control.setPadding(30,30,30,30);
-              root.addView(control);
-              Button btn1 = new Button(this);
-              btn1.setText("SCAN QR - 17.2.0");
-              btn1.setBackgroundColor(Color.parseColor("#1976D2"));
-              btn1.setTextColor(Color.WHITE);
-              root.addView(btn1);
-              Button btn2 = new Button(this);
-              btn2.setText("SCAN TEXT - 16.0.0");
-              btn2.setBackgroundColor(Color.parseColor("#1976D2"));
-              btn2.setTextColor(Color.WHITE);
-              root.addView(btn2);
-              setContentView(root);
-            }
-          }
-          EOFF
-
+          echo sdk.dir=$ANDROID_HOME > local.properties
+          echo "plugins { id 'com.android.application' version '8.2.2' apply false }" > build.gradle
+          printf "pluginManagement {\n repositories {\n google()\n mavenCentral()\n gradlePluginPortal()\n }\n}\n" > settings.gradle
+          printf "dependencyResolutionManagement {\n repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)\n repositories {\n google()\n mavenCentral()\n }\n}\ninclude ':app'\n" >> settings.gradle
+          echo "org.gradle.jvmargs=-Xmx4g" > gradle.properties
+          echo "android.useAndroidX=true" >> gradle.properties
+          echo "plugins { id 'com.android.application' } android { namespace 'com.mediaguard'; compileSdk 34; defaultConfig { applicationId 'com.mediaguard'; minSdk 26; targetSdk 34; versionCode 15; versionName '15.0' } compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 } } dependencies { implementation 'androidx.appcompat:appcompat:1.6.1'; implementation 'com.google.mlkit:barcode-scanning:17.2.0'; implementation 'com.google.mlkit:text-recognition:16.0.0' }" > app/build.gradle
+          echo '<resources><style name="Theme.MediaGuard" parent="Theme.AppCompat.Light.DarkActionBar"><item name="colorPrimary">#1976D2</item></style></resources>' > app/src/main/res/values/themes.xml
+          echo 'package com.mediaguard; import android.os.Bundle; import android.widget.*; import android.graphics.Color; import androidx.appcompat.app.AppCompatActivity; public class MainActivity extends AppCompatActivity { protected void onCreate(Bundle s){ super.onCreate(s); LinearLayout r=new LinearLayout(this); r.setOrientation(1); r.setBackgroundColor(Color.parseColor("#0A0A0A")); r.setPadding(40,80,40,40); TextView t=new TextView(this); t.setText("MediaGuard v15\nUPLOAD FIX - No L110\nYAML SAFE"); t.setTextColor(Color.WHITE); t.setTextSize(22); r.addView(t); TextView c=new TextView(this); c.setText("CONTROL CENTER\nVPN OFF\nLocation OFF\nSpeed FAST\nKarachi PK"); c.setTextColor(Color.WHITE); c.setBackgroundColor(Color.parseColor("#1E1E1E")); c.setPadding(30,30,30,30); r.addView(c); Button b=new Button(this); b.setText("SCAN QR 17.2.0"); r.addView(b); setContentView(r); }}' > app/src/main/java/com/mediaguard/MainActivity.java
+          echo '<?xml version="1.0" encoding="utf-8"?><manifest xmlns:android="http://schemas.android.com/apk/res/android"><uses-permission android:name="android.permission.CAMERA"/><application android:theme="@style/Theme.MediaGuard"><activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity></application></manifest>' > app/src/main/AndroidManifest.xml
       - name: Build APK
         run: |
           gradle wrapper --gradle-version 8.7
           chmod +x gradlew
          ./gradlew assembleDebug --no-daemon
-
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MediaGuard-v13-FIXED-JAVA
+          name: MediaGuard-v15-FIXED
           path: app/build/outputs/apk/debug/app-debug.apk
