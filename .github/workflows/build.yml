@@ -3,45 +3,31 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-
 permissions:
   contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-
-      - uses: gradle/actions/setup-gradle@v3
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: 8.7
-
-      - name: Build APK
+      - name: Build
         run: |
-          gradle wrapper --gradle-version 8.7
           chmod +x gradlew
          ./gradlew assembleDebug --no-daemon
-
-      - name: Get Version
-        id: ver
-        run: echo "TAG=v11.0-$(date +%Y%m%d-%H%M)" >> $GITHUB_OUTPUT
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: MediaGuard-${{ steps.ver.outputs.TAG }}
-          path: app/build/outputs/apk/debug/app-debug.apk
-
-      - name: Create ONE Release
+      - name: Make Tag
+        id: t
+        run: echo "TAG=v11-$(date +%H%M)" >> $GITHUB_OUTPUT
+      - name: Release One APK
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.ver.outputs.TAG }}
-          name: MediaGuard Pro ${{ steps.ver.outputs.TAG }}
-          body: "Official APK - Karachi PK - Control Center + MLKit 17.2.0/16.0.0 - Kotlin"
+          tag_name: ${{ steps.t.outputs.TAG }}
+          name: MediaGuard ${{ steps.t.outputs.TAG }}
           files: app/build/outputs/apk/debug/app-debug.apk
