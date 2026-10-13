@@ -1,5 +1,8 @@
-name: Build MediaGuard Pro v12.1 FIX 8s
-on: [push, workflow_dispatch]
+name: Build MediaGuard Pro v13 FIXED JAVA
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -9,31 +12,33 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.7
 
-      - name: Create MediaGuard Pro v12.1 - REAL UI
+      - name: Create App - FIXED JAVA
         run: |
-          rm -rf app build .gradle gradle gradlew gradlew.bat
+          rm -rf app build.gradle settings.gradle
           mkdir -p app/src/main/java/com/mediaguard app/src/main/res/values app/src/main/res/drawable
           echo "sdk.dir=$ANDROID_HOME" > local.properties
-          
-          cat > settings.gradle <<'EOF'
+          cat > settings.gradle <<'EOFF'
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
           include ":app"
-          EOF
-          cat > build.gradle <<'EOF'
+          EOFF
+          cat > build.gradle <<'EOFF'
           plugins { id 'com.android.application' version '8.2.2' apply false }
-          EOF
-          cat > gradle.properties <<'EOF'
+          EOFF
+          cat > gradle.properties <<'EOFF'
           org.gradle.jvmargs=-Xmx4g
           android.useAndroidX=true
-          EOF
-          cat > app/build.gradle <<'EOF'
+          EOFF
+          cat > app/build.gradle <<'EOFF'
           plugins { id 'com.android.application' }
           android {
             namespace 'com.mediaguard'
             compileSdk 34
-            defaultConfig { applicationId "com.mediaguard"; minSdk 26; targetSdk 34; versionCode 121; versionName "12.1-FIX-8s" }
+            defaultConfig { applicationId "com.mediaguard"; minSdk 26; targetSdk 34; versionCode 13; versionName "13.0-FIXED" }
             compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
           }
           dependencies {
@@ -41,60 +46,76 @@ jobs:
             implementation 'com.google.mlkit:barcode-scanning:17.2.0'
             implementation 'com.google.mlkit:text-recognition:16.0.0'
           }
-          EOF
-          cat > app/src/main/res/values/themes.xml <<'EOF'
+          EOFF
+          cat > app/src/main/res/values/themes.xml <<'EOFF'
           <resources><style name="Theme.MediaGuard" parent="Theme.AppCompat.Light.DarkActionBar"><item name="colorPrimary">#1976D2</item></style></resources>
-          EOF
-          cat > app/src/main/res/drawable/shield.xml <<'EOF'
+          EOFF
+          cat > app/src/main/res/drawable/shield.xml <<'EOFF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108"><path android:fillColor="#1976D2" android:pathData="M54,10 L20,26 L20,60 C20,80 35,95 54,100 C73,95 88,80 88,60 L88,26 Z"/></vector>
-          EOF
-          cat > app/src/main/res/drawable/card_bg.xml <<'EOF'
-          <shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#1E1E1E"/><corners android:radius="16dp"/><stroke android:width="1dp" android:color="#333333"/></shape>
-          EOF
-          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          EOFF
+          cat > app/src/main/AndroidManifest.xml <<'EOFF'
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <uses-permission android:name="android.permission.CAMERA"/><uses-permission android:name="android.permission.INTERNET"/><uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+            <uses-permission android:name="android.permission.CAMERA"/>
+            <uses-permission android:name="android.permission.INTERNET"/>
             <application android:label="MediaGuard Pro" android:theme="@style/Theme.MediaGuard" android:icon="@drawable/shield">
               <activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
-              <service android:name=".GuardService"/><service android:name=".FirewallVpnService" android:permission="android.permission.BIND_VPN_SERVICE"><intent-filter><action android:name="android.net.VpnService"/></intent-filter></service>
             </application>
           </manifest>
-          EOF
-          cat > app/src/main/java/com/mediaguard/GuardService.java <<'EOF'
-          package com.mediaguard; import android.app.*; import android.content.Intent; import android.os.IBinder; import androidx.core.app.NotificationCompat;
-          public class GuardService extends Service { public IBinder onBind(Intent i){return null;} public int onStartCommand(Intent intent,int f,int s){ NotificationChannel ch=new NotificationChannel("guard","guard",NotificationManager.IMPORTANCE_LOW); ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(ch); Notification n=new NotificationCompat.Builder(this,"guard").setSmallIcon(R.drawable.shield).setContentTitle("MediaGuard Active").build(); startForeground(1,n); return START_STICKY; } }
-          EOF
-          cat > app/src/main/java/com/mediaguard/FirewallVpnService.java <<'EOF'
-          package com.mediaguard; import android.content.Intent; import android.net.VpnService; import android.os.ParcelFileDescriptor;
-          public class FirewallVpnService extends VpnService { ParcelFileDescriptor v=null; public int onStartCommand(Intent i,int f,int s){ try{ if(v==null) v=new Builder().addAddress("10.0.0.2",32).addRoute("0.0.0.0",0).setSession("MediaGuard").establish(); }catch(Exception e){} return START_STICKY; } }
-          EOF
-          cat > app/src/main/java/com/mediaguard/MainActivity.java <<'EOF'
+          EOFF
+          cat > app/src/main/java/com/mediaguard/MainActivity.java <<'EOFF'
           package com.mediaguard;
-          import android.content.Intent; import android.os.Bundle; import android.widget.*; import android.graphics.Color; import androidx.appcompat.app.AppCompatActivity;
-          import java.text.SimpleDateFormat; import java.util.Date; import java.util.Locale;
+          import android.os.Bundle;
+          import android.widget.LinearLayout;
+          import android.widget.TextView;
+          import android.widget.Button;
+          import android.graphics.Color;
+          import androidx.appcompat.app.AppCompatActivity;
+          import java.text.SimpleDateFormat;
+          import java.util.Date;
+          import java.util.Locale;
           public class MainActivity extends AppCompatActivity {
-            TextView logText, dateTimeText;
-            protected void onCreate(Bundle b){
-              super.onCreate(b);
-              ScrollView scroll = new ScrollView(this);
-              LinearLayout main = new LinearLayout(this); main.setOrientation(1); main.setPadding(30,60,30,40); main.setBackgroundColor(Color.parseColor("#0A0A0A"));
-              TextView header = new TextView(this); header.setText("🛡️ MediaGuard Pro v12.1\nREAL UI - 8s FIX"); header.setTextColor(Color.WHITE); header.setTextSize(20); header.setPadding(0,0,0,24); main.addView(header);
-              LinearLayout ctrl = createCard(); ctrl.addView(createTitle("CONTROL CENTER"));
-              ctrl.addView(createSwitchRow("VPN Firewall", false, on->{ if(on) startService(new Intent(this, FirewallVpnService.class)); else stopService(new Intent(this, FirewallVpnService.class)); log("VPN "+(on?"ON":"OFF")); }));
-              ctrl.addView(createSwitchRow("Location Shield", false, on-> log("Location "+(on?"ON":"OFF"))));
-              ctrl.addView(createSwitchRow("Speed FAST", true, on-> log("Speed: "+(on?"FAST":"SAFE"))));
-              ctrl.addView(createSwitchRow("Security Alert", true, on-> {}));
-              dateTimeText = new TextView(this); dateTimeText.setTextColor(Color.GRAY); dateTimeText.setTextSize(12); ctrl.addView(dateTimeText);
-              TextView city = new TextView(this); city.setText("📍 Karachi, PK"); city.setTextColor(Color.GRAY); ctrl.addView(city);
-              main.addView(ctrl);
-              LinearLayout scan = createCard(); scan.addView(createTitle("MEDIA SCANNER"));
-              scan.addView(createButton("📷 SCAN QR - 17.2.0")); scan.addView(createButton("📝 SCAN TEXT - 16.0.0")); main.addView(scan);
-              LinearLayout logCard = createCard(); logCard.addView(createTitle("ACTIVITY LOG"));
-              logText = new TextView(this); logText.setText("✅ 8s error fixed\n✅ Removed setup-gradle action\n✅ Using wrapper 8.7\n"); logText.setTextColor(Color.parseColor("#B0BEC5")); logCard.addView(logText); main.addView(logCard);
-              scroll.addView(main); setContentView(scroll);
-              startService(new Intent(this, GuardService.class)); tick();
+            protected void onCreate(Bundle savedInstanceState) {
+              super.onCreate(savedInstanceState);
+              LinearLayout root = new LinearLayout(this);
+              root.setOrientation(LinearLayout.VERTICAL);
+              root.setBackgroundColor(Color.parseColor("#0A0A0A"));
+              root.setPadding(40,80,40,40);
+              TextView title = new TextView(this);
+              title.setText("MediaGuard Pro v13\nFIXED JAVA");
+              title.setTextColor(Color.WHITE);
+              title.setTextSize(22);
+              root.addView(title);
+              TextView control = new TextView(this);
+              control.setText("CONTROL CENTER\nVPN: OFF\nLocation: OFF\nSpeed: FAST\nAlert: ON\nKarachi, PK\n" + new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date()));
+              control.setTextColor(Color.parseColor("#E0E0E0"));
+              control.setTextSize(15);
+              control.setBackgroundColor(Color.parseColor("#1E1E1E"));
+              control.setPadding(30,30,30,30);
+              root.addView(control);
+              Button btn1 = new Button(this);
+              btn1.setText("SCAN QR - 17.2.0");
+              btn1.setBackgroundColor(Color.parseColor("#1976D2"));
+              btn1.setTextColor(Color.WHITE);
+              root.addView(btn1);
+              Button btn2 = new Button(this);
+              btn2.setText("SCAN TEXT - 16.0.0");
+              btn2.setBackgroundColor(Color.parseColor("#1976D2"));
+              btn2.setTextColor(Color.WHITE);
+              root.addView(btn2);
+              setContentView(root);
             }
-            LinearLayout createCard(){ LinearLayout c=new LinearLayout(this); c.setOrientation(1); c.setBackgroundResource(R.drawable.card_bg); c.setPadding(24,24,24,24); LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2); p.setMargins(0,0,0,20); c.setLayoutParams(p); return c; }
-            TextView createTitle(String s){ TextView t=new TextView(this); t.setText(s); t.setTextColor(Color.parseColor("#90CAF9")); t.setTextSize(11); t.setPadding(0,0,0,12); return t; }
-            LinearLayout createSwitchRow(String n, boolean d, SwitchCB cb){ LinearLayout r=new LinearLayout(this); r.setOrientation(0);
+          }
+          EOFF
+
+      - name: Build APK
+        run: |
+          gradle wrapper --gradle-version 8.7
+          chmod +x gradlew
+         ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MediaGuard-v13-FIXED-JAVA
+          path: app/build/outputs/apk/debug/app-debug.apk
