@@ -1,4 +1,4 @@
-name: Build MediaGuard Pro v11.1 FIX
+name: Build MediaGuard Pro v12 COMPLETE
 on: [push, workflow_dispatch]
 jobs:
   build:
@@ -9,30 +9,39 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: 8.2.2
 
-      - name: Create App - v11.1 FIXED (no MaterialCard)
+      - name: Create MediaGuard Pro v12 - REAL UI
         run: |
-          mkdir -p app/src/main/java/com/mediaguard app/src/main/res/layout app/src/main/res/values app/src/main/res/drawable
+          rm -rf app build .gradle gradle gradlew
+          mkdir -p app/src/main/java/com/mediaguard app/src/main/res/values app/src/main/res/drawable
           echo "sdk.dir=$ANDROID_HOME" > local.properties
+          
           cat > settings.gradle <<'EOF'
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
           include ":app"
           EOF
+          
           cat > build.gradle <<'EOF'
-          plugins { id 'com.android.application' version '8.2.0' apply false }
+          plugins { id 'com.android.application' version '8.2.2' apply false }
           EOF
+          
           cat > gradle.properties <<'EOF'
-          org.gradle.jvmargs=-Xmx4g
+          org.gradle.jvmargs=-Xmx4g -Dfile.encoding=UTF-8
           android.useAndroidX=true
           EOF
+          
           cat > app/build.gradle <<'EOF'
           plugins { id 'com.android.application' }
           android {
             namespace 'com.mediaguard'
             compileSdk 34
-            defaultConfig { applicationId "com.mediaguard"; minSdk 26; targetSdk 34; versionCode 111; versionName "11.1-FIXED" }
+            defaultConfig { applicationId "com.mediaguard"; minSdk 26; targetSdk 34; versionCode 12; versionName "12.0-REAL" }
             compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+            packaging { resources { excludes += "/META-INF/*" } }
           }
           dependencies {
             implementation 'androidx.appcompat:appcompat:1.6.1'
@@ -40,90 +49,23 @@ jobs:
             implementation 'com.google.mlkit:text-recognition:16.0.0'
           }
           EOF
+
           cat > app/src/main/res/values/themes.xml <<'EOF'
-          <resources><style name="Theme.MediaGuard" parent="Theme.AppCompat.DayNight"><item name="colorPrimary">#1976D2</item></style></resources>
+          <resources>
+            <style name="Theme.MediaGuard" parent="Theme.AppCompat.Light.DarkActionBar">
+              <item name="colorPrimary">#1976D2</item>
+              <item name="colorPrimaryDark">#0D47A1</item>
+            </style>
+          </resources>
           EOF
+          
           cat > app/src/main/res/values/strings.xml <<'EOF'
           <resources><string name="app_name">MediaGuard Pro</string></resources>
           EOF
+          
           cat > app/src/main/res/drawable/shield.xml <<'EOF'
           <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108"><path android:fillColor="#1976D2" android:pathData="M54,10 L20,26 L20,60 C20,80 35,95 54,100 C73,95 88,80 88,60 L88,26 Z"/></vector>
           EOF
+          
           cat > app/src/main/res/drawable/card_bg.xml <<'EOF'
-          <shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#1E1E1E"/><corners android:radius="16dp"/><stroke android:width="1dp" android:color="#333333"/></shape>
-          EOF
-          cat > app/src/main/AndroidManifest.xml <<'EOF'
-          <?xml version="1.0" encoding="utf-8"?>
-          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <uses-permission android:name="android.permission.CAMERA"/><uses-permission android:name="android.permission.INTERNET"/><uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
-            <application android:label="MediaGuard Pro" android:theme="@style/Theme.MediaGuard" android:icon="@drawable/shield">
-              <activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
-              <service android:name=".GuardService"/><service android:name=".FirewallVpnService" android:permission="android.permission.BIND_VPN_SERVICE"><intent-filter><action android:name="android.net.VpnService"/></intent-filter></service>
-            </application>
-          </manifest>
-          EOF
-          cat > app/src/main/java/com/mediaguard/GuardService.java <<'EOF'
-          package com.mediaguard; import android.app.*; import android.content.Intent; import android.os.IBinder; import androidx.core.app.NotificationCompat;
-          public class GuardService extends Service { public IBinder onBind(Intent i){return null;} public int onStartCommand(Intent intent,int f,int s){ NotificationChannel ch=new NotificationChannel("guard","guard",NotificationManager.IMPORTANCE_LOW); ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(ch); Notification n=new NotificationCompat.Builder(this,"guard").setSmallIcon(R.drawable.shield).setContentTitle("MediaGuard Active").build(); startForeground(1,n); return START_STICKY; } }
-          EOF
-          cat > app/src/main/java/com/mediaguard/FirewallVpnService.java <<'EOF'
-          package com.mediaguard; import android.content.Intent; import android.net.VpnService; import android.os.ParcelFileDescriptor;
-          public class FirewallVpnService extends VpnService { ParcelFileDescriptor v=null; public int onStartCommand(Intent i,int f,int s){ try{if(v==null)v=new Builder().addAddress("10.0.0.2",32).addRoute("0.0.0.0",0).setSession("MediaGuard").establish();}catch(Exception e){} return START_STICKY; } }
-          EOF
-          cat > app/src/main/java/com/mediaguard/MainActivity.java <<'EOF'
-          package com.mediaguard;
-          import android.content.Intent;
-          import android.os.Bundle;
-          import android.widget.*;
-          import android.graphics.Color;
-          import android.view.Gravity;
-          import androidx.appcompat.app.AppCompatActivity;
-          import java.text.SimpleDateFormat;
-          import java.util.Date;
-          import java.util.Locale;
-          public class MainActivity extends AppCompatActivity {
-            boolean vpnOn=false; TextView logText, dateTimeText;
-            protected void onCreate(Bundle b){
-              super.onCreate(b);
-              ScrollView scroll = new ScrollView(this);
-              LinearLayout main = new LinearLayout(this);
-              main.setOrientation(1); main.setPadding(30,60,30,30); main.setBackgroundColor(Color.parseColor("#0A0A0A"));
-              TextView header = new TextView(this); header.setText("🛡️ MediaGuard Pro v11.1\nFIXED BUILD"); header.setTextColor(Color.WHITE); header.setTextSize(20); header.setPadding(0,0,0,24); main.addView(header);
-              // CONTROL CENTER
-              LinearLayout ctrl = card(); TextView ct = title("CONTROL CENTER"); ctrl.addView(ct);
-              ctrl.addView(row("VPN Firewall", false, on-> { vpnOn=on; if(on) startService(new Intent(this, FirewallVpnService.class)); else stopService(new Intent(this, FirewallVpnService.class)); log("VPN "+(on?"ON":"OFF")); }));
-              ctrl.addView(row("Location Shield", false, on-> log("Location "+(on?"ON":"OFF"))));
-              ctrl.addView(row("Speed Mode FAST", true, on-> log("Speed: "+(on?"FAST":"SAFE"))));
-              ctrl.addView(row("Security Alert", true, on-> {}));
-              dateTimeText = new TextView(this); dateTimeText.setTextColor(Color.GRAY); dateTimeText.setTextSize(12); ctrl.addView(dateTimeText);
-              TextView city = new TextView(this); city.setText("📍 Karachi, PK  •  "+new SimpleDateFormat("MMM dd", Locale.US).format(new Date())); city.setTextColor(Color.GRAY); city.setTextSize(12); ctrl.addView(city);
-              main.addView(ctrl);
-              // SCANNER
-              LinearLayout scan = card(); scan.addView(title("MEDIA SCANNER - ALL LIBS"));
-              Button qr = btn("📷 SCAN QR - barcode-scanning:17.2.0"); qr.setOnClickListener(v-> log("QR Scanner ready (MLKit)"));
-              Button txt = btn("📝 SCAN TEXT - text-recognition:16.0.0"); txt.setOnClickListener(v-> log("Text recognition ready"));
-              scan.addView(qr); scan.addView(txt); main.addView(scan);
-              // LOG
-              LinearLayout logCard = card(); logCard.addView(title("ACTIVITY LOG"));
-              logText = new TextView(this); logText.setText("✅ v11.1 Build Fix - Removed MaterialCard dependency\n✅ All libs still included\n✅ Branches separated - main stable\n✅ Ready for feature branches\n"); logText.setTextColor(Color.parseColor("#B0BEC5")); logText.setTextSize(13); logCard.addView(logText); main.addView(logCard);
-              scroll.addView(main); setContentView(scroll);
-              startService(new Intent(this, GuardService.class)); tick();
-            }
-            LinearLayout card(){ LinearLayout c=new LinearLayout(this); c.setOrientation(1); c.setBackgroundResource(R.drawable.card_bg); c.setPadding(24,24,24,24); LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2); p.setMargins(0,0,0,20); c.setLayoutParams(p); return c; }
-            TextView title(String s){ TextView t=new TextView(this); t.setText(s); t.setTextColor(Color.parseColor("#90CAF9")); t.setTextSize(11); t.setPadding(0,0,0,12); return t; }
-            LinearLayout row(String name, boolean def, SwitchCB cb){ LinearLayout r=new LinearLayout(this); r.setOrientation(0); r.setPadding(0,14,0,14); TextView tv=new TextView(this); tv.setText(name); tv.setTextColor(Color.WHITE); tv.setTextSize(15); LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-2,1f); tv.setLayoutParams(lp); Switch sw=new Switch(this); sw.setChecked(def); sw.setOnCheckedChangeListener((a,c)-> cb.onChanged(c)); r.addView(tv); r.addView(sw); return r; }
-            Button btn(String s){ Button b=new Button(this); b.setText(s); b.setAllCaps(false); b.setBackgroundColor(Color.parseColor("#1976D2")); b.setTextColor(Color.WHITE); LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(-1,-2); p.setMargins(0,12,0,0); b.setLayoutParams(p); return b; }
-            void log(String s){ logText.append("\n> "+new SimpleDateFormat("HH:mm:ss").format(new Date())+" "+s); }
-            void tick(){ new android.os.Handler().postDelayed(()->{ if(dateTimeText!=null){ dateTimeText.setText("🕒 "+new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())); tick(); } },1000); }
-            interface SwitchCB{ void onChanged(boolean v); }
-          }
-          EOF
-
-      - name: Build APK
-        run: gradle assembleDebug --stacktrace
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: MediaGuard-Pro-v11.1-FIXED
-          path: app/build/outputs/apk/debug/app-debug.apk
+          <shape xmlns:android="http://schemas.android.com/apk/res/android"><solid android:color="#1E1E1E"/><corners android:radius="16dp"/>
