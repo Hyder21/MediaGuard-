@@ -1,41 +1,47 @@
-name: Build MediaGuard v15 UPLOAD FIX
+name: ONE APK Release
 on:
   push:
     branches: [main]
   workflow_dispatch:
+
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
       - uses: gradle/actions/setup-gradle@v3
         with:
           gradle-version: 8.7
-      - name: Create Project
-        run: |
-          rm -rf app build.gradle settings.gradle
-          mkdir -p app/src/main/java/com/mediaguard app/src/main/res/values app/src/main/res/drawable
-          echo sdk.dir=$ANDROID_HOME > local.properties
-          echo "plugins { id 'com.android.application' version '8.2.2' apply false }" > build.gradle
-          printf "pluginManagement {\n repositories {\n google()\n mavenCentral()\n gradlePluginPortal()\n }\n}\n" > settings.gradle
-          printf "dependencyResolutionManagement {\n repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)\n repositories {\n google()\n mavenCentral()\n }\n}\ninclude ':app'\n" >> settings.gradle
-          echo "org.gradle.jvmargs=-Xmx4g" > gradle.properties
-          echo "android.useAndroidX=true" >> gradle.properties
-          echo "plugins { id 'com.android.application' } android { namespace 'com.mediaguard'; compileSdk 34; defaultConfig { applicationId 'com.mediaguard'; minSdk 26; targetSdk 34; versionCode 15; versionName '15.0' } compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 } } dependencies { implementation 'androidx.appcompat:appcompat:1.6.1'; implementation 'com.google.mlkit:barcode-scanning:17.2.0'; implementation 'com.google.mlkit:text-recognition:16.0.0' }" > app/build.gradle
-          echo '<resources><style name="Theme.MediaGuard" parent="Theme.AppCompat.Light.DarkActionBar"><item name="colorPrimary">#1976D2</item></style></resources>' > app/src/main/res/values/themes.xml
-          echo 'package com.mediaguard; import android.os.Bundle; import android.widget.*; import android.graphics.Color; import androidx.appcompat.app.AppCompatActivity; public class MainActivity extends AppCompatActivity { protected void onCreate(Bundle s){ super.onCreate(s); LinearLayout r=new LinearLayout(this); r.setOrientation(1); r.setBackgroundColor(Color.parseColor("#0A0A0A")); r.setPadding(40,80,40,40); TextView t=new TextView(this); t.setText("MediaGuard v15\nUPLOAD FIX - No L110\nYAML SAFE"); t.setTextColor(Color.WHITE); t.setTextSize(22); r.addView(t); TextView c=new TextView(this); c.setText("CONTROL CENTER\nVPN OFF\nLocation OFF\nSpeed FAST\nKarachi PK"); c.setTextColor(Color.WHITE); c.setBackgroundColor(Color.parseColor("#1E1E1E")); c.setPadding(30,30,30,30); r.addView(c); Button b=new Button(this); b.setText("SCAN QR 17.2.0"); r.addView(b); setContentView(r); }}' > app/src/main/java/com/mediaguard/MainActivity.java
-          echo '<?xml version="1.0" encoding="utf-8"?><manifest xmlns:android="http://schemas.android.com/apk/res/android"><uses-permission android:name="android.permission.CAMERA"/><application android:theme="@style/Theme.MediaGuard"><activity android:name=".MainActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity></application></manifest>' > app/src/main/AndroidManifest.xml
+
       - name: Build APK
         run: |
           gradle wrapper --gradle-version 8.7
           chmod +x gradlew
          ./gradlew assembleDebug --no-daemon
-      - name: Upload APK
+
+      - name: Get Version
+        id: ver
+        run: echo "TAG=v11.0-$(date +%Y%m%d-%H%M)" >> $GITHUB_OUTPUT
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MediaGuard-v15-FIXED
+          name: MediaGuard-${{ steps.ver.outputs.TAG }}
           path: app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Create ONE Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.ver.outputs.TAG }}
+          name: MediaGuard Pro ${{ steps.ver.outputs.TAG }}
+          body: "Official APK - Karachi PK - Control Center + MLKit 17.2.0/16.0.0 - Kotlin"
+          files: app/build/outputs/apk/debug/app-debug.apk
